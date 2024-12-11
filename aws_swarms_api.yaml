@@ -1,0 +1,27 @@
+service:
+
+  # Readiness probe for the Swarms API to ensure replicas are ready before accepting traffic.
+  readiness_probe:
+    path: /v1/agents  # Verify the Swarms API is running by probing this endpoint.
+    initial_delay_seconds: 120  # Allow 2 minutes for the API to initialize.
+    timeout_seconds: 15  # Fail the probe if it takes more than 15 seconds.
+
+  # Use a fixed number of replicas for simplicity on a free-tier EC2 instance.
+  replicas: 1
+
+resources:
+  instance_type: t2.micro  # Free-tier eligible instance type.
+  ports: 8000  # Expose the Swarms API on port 8000.
+
+file_mounts:
+  /app: ./  # Upload the current directory containing your application files.
+
+setup:
+  # Install dependencies from requirements.txt first
+  - pip install -r /app/requirements.txt  # Install Python dependencies from requirements.txt
+  # Install additional dependencies from pyproject.toml (using pip for this example)
+  - pip install .  # Install dependencies defined in pyproject.toml (from the current directory)
+  - export ENV_FILE=/app/.env  # Set environment variables, if needed.
+
+run:
+  - uvicorn main:create_app --host 0.0.0.0 --port 8000  # Start the Swarms API.
