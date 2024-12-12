@@ -81,6 +81,8 @@ reportlab = "*"
 doc-master = "*"
 rich = "*"
 lambda_multiprocessing = "*"
+fastapi = "*"
+uvicorn = "*"
 [tool.poetry.scripts]
 swarms = "swarms.cli.main:main"
 

@@ -1,27 +1,45 @@
 service:
-
   # Readiness probe for the Swarms API to ensure replicas are ready before accepting traffic.
   readiness_probe:
     path: /v1/agents  # Verify the Swarms API is running by probing this endpoint.
     initial_delay_seconds: 120  # Allow 2 minutes for the API to initialize.
-    timeout_seconds: 15  # Fail the probe if it takes more than 15 seconds.
+    timeout_seconds: 300  # Fail the probe if it takes more than 5 minutes.
 
-  # Use a fixed number of replicas for simplicity on a free-tier EC2 instance.
-  replicas: 1
+  # Replica autoscaling policy. This describes how SkyServe autoscales your service based on the QPS of your service.
+  replica_policy:
+    min_replicas: 1
+    max_replicas: 3
+    target_qps_per_replica: 5
+    upscale_delay_seconds: 300
+    downscale_delay_seconds: 1200
 
 resources:
-  instance_type: t2.micro  # Free-tier eligible instance type.
+  # Use a fixed instance type for the service.
+  instance_type: m5d.large  # Instance type for your service.
   ports: 8000  # Expose the Swarms API on port 8000.
 
 file_mounts:
-  /app: ./  # Upload the current directory containing your application files.
+  /app: .  # Upload the current directory containing your application files.
 
-setup:
-  # Install dependencies from requirements.txt first
-  - pip install -r /app/requirements.txt  # Install Python dependencies from requirements.txt
-  # Install additional dependencies from pyproject.toml (using pip for this example)
-  - pip install .  # Install dependencies defined in pyproject.toml (from the current directory)
-  - export ENV_FILE=/app/.env  # Set environment variables, if needed.
+setup: |
+  # Install Poetry (if not already installed) and add it to the path
+  curl -sSL https://install.python-poetry.org | python3 -
+  export PATH="$HOME/.local/bin:$PATH"
+  
+  # Install dependencies from pyproject.toml using Poetry
+  cd /app && poetry install --no-root  # Install dependencies using Poetry
+  
+  # Install additional dependencies from requirements.txt (for compatibility or legacy support)
+  if [ -f /app/requirements.txt ]; then
+    pip install -r /app/requirements.txt  # Install requirements.txt dependencies using pip
+  fi
+  
+  # Set environment variables (ensure your .env file is correctly set up)
+  export ENV_FILE=/app/.env
 
-run:
-  - uvicorn main:create_app --host 0.0.0.0 --port 8000  # Start the Swarms API.
+run: |
+  # Start the FastAPI app using Uvicorn, exposing it on all interfaces and the specified port.
+  uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Removed `create_app` and used `main:app` directly.
+  
+  # Optional: Run any custom initialization scripts before starting the app.
+  # python /app/setup_initialization.py  # Uncomment if needed.
